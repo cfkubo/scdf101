@@ -1,0 +1,117 @@
+# scdf-101
+
+### Manual Local Setup
+
+<<<<<<< HEAD
+#### Setup RabbitMQ
+```
+docker run -d  --rm --name rabbitmq -p 5552:5552 -p 15672:15672 -p 5672:5672  \
+    -e RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost' \
+    rabbitmq:4-management
+```
+
+=======
+>>>>>>> ee6746d (SCDF setup on local)
+#### SCDF Server 
+```
+wget https://repo.maven.apache.org/maven2/org/springframework/cloud/spring-cloud-dataflow-server/2.11.5/spring-cloud-dataflow-server-2.11.5.jar
+
+wget https://repo.maven.apache.org/maven2/org/springframework/cloud/spring-cloud-dataflow-shell/2.11.5/spring-cloud-dataflow-shell-2.11.5.jar
+```
+
+#### SCDF Skipper
+```
+wget https://repo.maven.apache.org/maven2/org/springframework/cloud/spring-cloud-skipper-server/2.11.5/spring-cloud-skipper-server-2.11.5.jar
+```
+#### Run SCDF Skipper
+```
+java -jar spring-cloud-skipper-server-2.11.5.jar
+```
+#### Run SCDF Server
+```
+java -jar spring-cloud-dataflow-server-2.11.5.jar
+```
+#### Run SCDF Shell
+```
+java -jar spring-cloud-dataflow-shell-2.11.5.jar
+```
+<<<<<<< HEAD
+
+#### Access SCDF Server Dashboard
+```
+http://localhost:9393/dashboard
+```
+=======
+>>>>>>> ee6746d (SCDF setup on local)
+
+sd=rabbit --queues=salesOrder --port=5432  | jdbc --password=password --username=admin --url=jdbc:postgresql://localhost:5432/postgres --table-name=public.salesorders
+
+sd=rabbit --queues=salesOrderQuorum --port=5432 | jdbc --password=password --username=admin --url=jdbc:postgresql://localhost:5432/postgres --table-name=public.salesorders
+
+
+quorum-jdbc=rabbit --queues=salesOrderQuorum --port=5432 --app.rabbit.spring.cloud.stream.rabbit.bindings.input.consumer.dlqQuorum.enabled=true   --app.rabbit.spring.cloud.stream.rabbit.bindings.input.consumer.quorum.enabled=true | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders"  --app.jdbc.spring.cloud.stream.rabbit.bindings.output.producer.quorum.enabled=true --app.jdbc.spring.cloud.stream.rabbit.bindings.input.producer.dlqQuorum.enabled=true
+
+
+
+ --spring.cloud.stream.rabbit.bindings.input.consumer.acknowledgeMode=MANUAL --spring.cloud.stream.rabbit.bindings.input.consumer.dlqQuorum.enabled=true --spring.cloud.stream.rabbit.bindings.input.consumer.autoBindDlq=true --spring.cloud.stream.rabbit.bindings.output.producer.quorum.enabled=true --spring.cloud.stream.rabbit.bindings.input.consumer.quorum.enabled=true  
+
+--app.http-request.spring.cloud.stream.rabbit.bindings.input.consumer.dlqQuorum.enabled=true --app.http-request.spring.cloud.stream.rabbit.bindings.input.consumer.quorum.enabled=true
+
+api=http --port=7575 --path-pattern=timeout --spring.cloud.stream.rabbit.bindings.output.producer.quorum.enabled="true" | http-request  --http.request.body-expression=payload --http.request.http-method-expression="'POST'" --http.request.urlExpression="'http://localhost:8585/timeout'" --expected-response-type=java.lang.String --spring.cloud.stream.rabbit.bindings.input.consumer.acknowledgeMode=MANUAL --spring.cloud.stream.rabbit.bindings.input.consumer.dlqQuorum.enabled=true --spring.cloud.stream.rabbit.bindings.input.consumer.autoBindDlq=true --spring.cloud.stream.rabbit.bindings.output.producer.quorum.enabled=true --spring.cloud.stream.rabbit.bindings.input.consumer.quorum.enabled=true  --http.request.headers-expression="{'Content-Type':'application/json'}" | log --spring.cloud.stream.rabbit.bindings.input.consumer.quorum.enabled="true"
+
+
+rabbit --queues=salesOrderQuorumQueue --port=5672 --publisher-confirm-type=CORRELATED  | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders" 
+
+rabbit --queues=salesOrderStream --port=5552 --publisher-confirm-type=CORRELATED  | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders" 
+
+rabbit --queues=salesOrderStream --port=5552 --publisher-confirm-type=CORRELATED --logging.level.root=DEBUG | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders" --logging.level.root=DEBUG --logging.level.org.springframework.integration.jdbc=DEBUG
+	
+rabbit --queues=salesOrderQuorumQueue --port=5672 --publisher-confirm-type=CORRELATED --spring.cloud.stream.bindings.output.content-type=application/json | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders_json" --spring.cloud.stream.bindings.output.content-type=application/json
+
+
+rabbit --queues=salesOrderQuorumQueue --port=5672 --publisher-confirm-type=CORRELATED --contentType=application/json | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders_json" --contentType=application/json --column-type="payload=json"
+
+rabbit --queues=salesOrderQuorumQueue --port=5672 --publisher-confirm-type=CORRELATED --contentType=application/json | transform --script='new String(payload)' | jdbc --password=password --username=admin --url="jdbc:postgresql://localhost:5432/postgres" --table-name="public.salesorders_json" --contentType=application/json --column-type="payload=json"
+
+
+salesOrderStream
+
+stream create --name toupper-json-stream --definition "http --server.port=9000 --contentType=application/json | transform --script='T(org.springframework.util.StringUtils).capitalize(payload.fieldName)' | log"
+
+
+
+CREATE TABLE salesorders_read (
+    order_id SERIAL PRIMARY KEY,
+    product VARCHAR(255),
+    price DECIMAL(10, 2),
+    quantity INTEGER,
+    ship_to TEXT,
+    payment_method VARCHAR(50),
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE salesorders (
+    order_id SERIAL PRIMARY KEY,
+    payload VARCHAR(n)
+);
+
+CREATE TABLE salesorders_json (
+    order_id SERIAL PRIMARY KEY,
+    payload JSON
+);
+
+
+
+
+########
+
+stream create --name rabbit-to-postgres-json-explicit --definition "rabbit --queues=salesOrderQuorumQueue --port=5672 --publisher-confirm-type=CORRELATED --contentType=application/json | scriptable-transform --script='new String(payload)' | jdbc --password=password --username=admin --url=\"jdbc:postgresql://localhost:5432/postgres\" --table-name=\"public.salesorders_json\" --contentType=application/json --column-type=payload=json"
+
+
+stream create --name toupper-json-stream --definition "http --server.port=9000 --contentType=application/json | scriptable-transform --script='T(org.springframework.util.StringUtils).capitalize(payload.fieldName)' | log"
+
+curl -X POST -H "Content-Type: application/json" -d '{"fieldName": "lowercase"}' http://localhost:9000
+
+
+
+CREATE OR REPLACE PROCEDURE copy_sales_orders_regex() LANGUAGE plpgsql AS $$ BEGIN INSERT INTO salesorders_read (product, price, quantity, ship_to, payment_method) SELECT (regexp_match(payload, E'product='([^\']+)''))[1], (regexp_match(payload, E'price=([\d\.]+)'))[1]::DECIMAL(10, 2), (regexp_match(payload, E'quantity=(\d+)'))[1]::INTEGER, (regexp_match(payload, E'shipTo='([^\']+)''))[1], (regexp_match(payload, E'paymentMethod='([^\']+)''))[1] FROM salesorders WHERE NOT EXISTS ( SELECT 1 FROM salesorders_read r WHERE r.product = (regexp_match(salesorders.payload, E'product='([^\']+)''))[1] AND r.price = (regexp_match(salesorders.payload, E'price=([\d\.]+)'))[1]::DECIMAL(10, 2) AND r.quantity = (regexp_match(salesorders.payload, E'quantity=(\d+)'))[1]::INTEGER AND r.ship_to = (regexp_match(salesorders.payload, E'shipTo='([^\']+)''))[1] AND r.payment_method = (regexp_match(salesorders.payload, E'paymentMethod='([^\']+)''))[1] ); END; $$;
